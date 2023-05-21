@@ -3,7 +3,41 @@ With PyGame
 """
 import pygame
 import cv2
-import time
+import traceback
+from detection import detect_cicles
+from threading import Thread
+
+
+def verifica_colisao(rect, circle):
+    x, y, w, h = rect
+    center_x, center_y, radius = circle
+
+    # Verifica se o círculo colide com o retângulo
+    if center_x + radius < x or center_x - radius > x + w or \
+       center_y + radius < y or center_y - radius > y + h:
+        return False
+    else:
+        return True
+
+
+# Inicializar o mixer do pygame
+pygame.mixer.init()
+
+# Carregar os arquivos de som em canais separados
+canal1 = pygame.mixer.Channel(0)
+caixa = pygame.mixer.Sound('sounds/caixa.mp3')
+
+
+def emitir_beep():
+    t = Thread(target=canal1.play, args=(caixa,), daemon=True)
+    t.start()
+
+
+# Coordenadas e dimensões do retângulo
+x_r = 400
+y_r = 100
+width_r = 100
+height_r = 150
 
 # Inicialização do Pygame
 pygame.init()
@@ -14,12 +48,9 @@ window = pygame.display.set_mode((window_width, window_height))
 
 # Inicialização da câmera
 camera = cv2.VideoCapture(0)
+# Define o tempo de abertura da webcam
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, window_width)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, window_height)
-
-# Variáveis para cálculo do FPS e do Delay
-fps_start_time = time.time()
-fps_frame_count = 0
 
 while True:
     for event in pygame.event.get():
@@ -29,33 +60,38 @@ while True:
             pygame.quit()
             quit()
 
-    # Capturar tempo de início do processamento
-    processing_start_time = time.time()
-
     # Capturar frame da câmera
-    ret, frame = camera.read()
+    ret, frame_bgr = camera.read()
 
     # Rotacionar o frame em 90 graus no sentido anti-horário
-    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+    try:
+        cicles = detect_cicles(frame_bgr=frame_bgr)
+    except Exception:
+        traceback.print_exc()
 
     # Converter a imagem do OpenCV para o formato do Pygame
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+
+    for pt in cicles:
+        a, b, r = pt[0], pt[1], pt[2]
+
+        if verifica_colisao(
+            (x_r, y_r, width_r, height_r), pt
+        ):
+            emitir_beep()
+
+        # Draw the circumference of the circle.
+        cv2.circle(frame_rgb, (a, b), r, (0, 255, 0), 2)
+
+    # Desenha o retângulo na imagem
+    cv2.rectangle(frame_rgb, (x_r, y_r), (x_r + width_r, y_r + height_r), (0, 0, 255), 2)
+
     frame_pygame = pygame.surfarray.make_surface(frame_rgb)
 
     # Exibir o frame na janela do Pygame
     window.blit(frame_pygame, (0, 0))
-
-    # Cálculo do FPS
-    fps_frame_count += 1
-    if (time.time() - fps_start_time) > 1:
-        fps = fps_frame_count / (time.time() - fps_start_time)
-        print("FPS:", round(fps, 2))
-        fps_frame_count = 0
-        fps_start_time = time.time()
-
-    # Cálculo do Delay
-    processing_time = time.time() - processing_start_time
-    print("Delay:", round(processing_time, 4), "s")
 
     pygame.display.update()
 
