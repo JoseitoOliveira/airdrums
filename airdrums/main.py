@@ -52,6 +52,12 @@ camera = cv2.VideoCapture(0)
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, window_width)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, window_height)
 
+tracker = cv2.legacy.TrackerCSRT_create()
+multitracker = cv2.legacy.MultiTracker_create()
+bboxes = []
+
+NUM_TRACKED_OBJS = 1
+
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -66,10 +72,29 @@ while True:
     # Rotacionar o frame em 90 graus no sentido anti-horário
     frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-    try:
-        cicles = detect_cicles(frame_bgr=frame_bgr)
-    except Exception:
-        traceback.print_exc()
+    if len(bboxes) == NUM_TRACKED_OBJS:
+        # only tracker bboxes
+        ...
+    elif 0 < len(bboxes) < NUM_TRACKED_OBJS:
+        # update tracker; detect circles; if new circle is detected add to tracker
+        ...
+    else:
+        try:
+            cicles = detect_cicles(frame_bgr=frame_bgr)
+        except Exception:
+            traceback.print_exc()
+        else:
+            cicles = []
+        
+        for pt in cicles:
+            a, b, r = pt[0], pt[1], pt[2]
+            pt1 = [(a - r), (b - r)]
+            pt2 = [(a + r), (b + r)]
+            
+
+            # Draw the circumference of the circle.
+            cv2.circle(frame_rgb, (a, b), 20, (0, 255, 0), 2)
+
 
     # Converter a imagem do OpenCV para o formato do Pygame
     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
@@ -78,12 +103,12 @@ while True:
         a, b, r = pt[0], pt[1], pt[2]
 
         if verifica_colisao(
-            (x_r, y_r, width_r, height_r), pt
+            (x_r, y_r, width_r, height_r), (a, b, 20)
         ):
             emitir_beep()
 
         # Draw the circumference of the circle.
-        cv2.circle(frame_rgb, (a, b), r, (0, 255, 0), 2)
+        cv2.circle(frame_rgb, (a, b), 20, (0, 255, 0), 2)
 
     # Desenha o retângulo na imagem
     cv2.rectangle(frame_rgb, (x_r, y_r), (x_r + width_r, y_r + height_r), (0, 0, 255), 2)

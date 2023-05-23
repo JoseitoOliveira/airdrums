@@ -40,29 +40,3 @@ def detect_cicles(frame_bgr, minRadius=None, maxRadius=None):
         return cicles
 
     return []
-
-
-def flexible_detect_cicles(frame_bgr, minRadius=None, maxRadius=None):
-
-    blue, green, red = cv2.split(frame_bgr)
-    # Converte para uma imagem em escala de cinza
-    # Cria uma nova imagem utilizando apenas o canal azul
-    blue_image = cv2.merge((blue, blue, blue))
-    gray_image = cv2.cvtColor(blue_image, cv2.COLOR_BGR2GRAY)
-
-    # Blur using 3 * 3 kernel.
-    gray_blurred = cv2.blur(gray_image, (3, 3))
-
-    # Apply Hough transform on the blurred image.
-    detected_circles = cv2.HoughCircles(gray_blurred,
-                                        cv2.HOUGH_GRADIENT, 1, 100, param1=50,
-                                        param2=30, minRadius=10, maxRadius=70)
-
-    # Draw circles that are detected.
-    if detected_circles is not None:
-        # Convert the circle parameters a, b and r to integers.
-        detected_circles = np.uint16(np.around(detected_circles))
-        cicles = detected_circles[0, :]
-        return cicles
-
-    return []
