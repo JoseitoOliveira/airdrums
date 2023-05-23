@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 
-def detect_cicles(frame_bgr, minRadius=None, maxRadius=None):
+def detect_circles(frame_bgr, minRadius=None, maxRadius=None):
 
     minRadius = minRadius or 10
     maxRadius = maxRadius or 70    # Separa o canal azul

@@ -4,15 +4,15 @@ With PyGame
 import pygame
 import cv2
 import traceback
-from detection import detect_cicles
+from detection import detect_circles
 from threading import Thread
 
 
-def verifica_colisao(rect, circle):
+def check_collision(rect, circle):
     x, y, w, h = rect
     center_x, center_y, radius = circle
 
-    # Verifica se o círculo colide com o retângulo
+    # Check if the circle collides with the rectangle
     if center_x + radius < x or center_x - radius > x + w or \
        center_y + radius < y or center_y - radius > y + h:
         return False
@@ -20,35 +20,35 @@ def verifica_colisao(rect, circle):
         return True
 
 
-# Inicializar o mixer do pygame
+# Initialize pygame mixer
 pygame.mixer.init()
 
-# Carregar os arquivos de som em canais separados
-canal1 = pygame.mixer.Channel(0)
-caixa = pygame.mixer.Sound('sounds/caixa.mp3')
+# Load sound files into separate channels
+channel1 = pygame.mixer.Channel(0)
+box_sound = pygame.mixer.Sound('sounds/caixa.mp3')
 
 
-def emitir_beep():
-    t = Thread(target=canal1.play, args=(caixa,), daemon=True)
+def play_beep():
+    t = Thread(target=channel1.play, args=(box_sound,), daemon=True)
     t.start()
 
 
-# Coordenadas e dimensões do retângulo
+# Coordinates and dimensions of the rectangle
 x_r = 400
 y_r = 100
 width_r = 100
 height_r = 150
 
-# Inicialização do Pygame
+# Pygame initialization
 pygame.init()
 
-# Definição das dimensões da janela
+# Window dimensions
 window_width, window_height = 640, 480
 window = pygame.display.set_mode((window_width, window_height))
 
-# Inicialização da câmera
+# Camera initialization
 camera = cv2.VideoCapture(0)
-# Define o tempo de abertura da webcam
+# Set webcam frame size
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, window_width)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, window_height)
 
@@ -61,16 +61,18 @@ NUM_TRACKED_OBJS = 1
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            # Fechar a janela se o botão de fechar for pressionado
+            # Close the window if the close button is pressed
             camera.release()
             pygame.quit()
             quit()
 
-    # Capturar frame da câmera
+    # Capture frame from the camera
     ret, frame_bgr = camera.read()
 
-    # Rotacionar o frame em 90 graus no sentido anti-horário
+    # Rotate the frame 90 degrees counterclockwise
     frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    # Convert the OpenCV image to Pygame format
+    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
 
     if len(bboxes) == NUM_TRACKED_OBJS:
         # only tracker bboxes
@@ -80,51 +82,45 @@ while True:
         ...
     else:
         try:
-            cicles = detect_cicles(frame_bgr=frame_bgr)
+            circles = detect_circles(frame_bgr=frame_bgr)
         except Exception:
             traceback.print_exc()
-        else:
-            cicles = []
-        
-        for pt in cicles:
+            circles = []
+
+        for pt in circles:
             a, b, r = pt[0], pt[1], pt[2]
             pt1 = [(a - r), (b - r)]
             pt2 = [(a + r), (b + r)]
-            
 
             # Draw the circumference of the circle.
             cv2.circle(frame_rgb, (a, b), 20, (0, 255, 0), 2)
 
-
-    # Converter a imagem do OpenCV para o formato do Pygame
-    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-
-    for pt in cicles:
+    for pt in circles:
         a, b, r = pt[0], pt[1], pt[2]
 
-        if verifica_colisao(
+        if check_collision(
             (x_r, y_r, width_r, height_r), (a, b, 20)
         ):
-            emitir_beep()
+            play_beep()
 
         # Draw the circumference of the circle.
         cv2.circle(frame_rgb, (a, b), 20, (0, 255, 0), 2)
 
-    # Desenha o retângulo na imagem
+    # Draw the rectangle on the image
     cv2.rectangle(frame_rgb, (x_r, y_r), (x_r + width_r, y_r + height_r), (0, 0, 255), 2)
 
     frame_pygame = pygame.surfarray.make_surface(frame_rgb)
 
-    # Exibir o frame na janela do Pygame
+    # Display the frame on the Pygame window
     window.blit(frame_pygame, (0, 0))
 
     pygame.display.update()
 
-    # Verificar se a tecla 'Esc' foi pressionada para sair do loop
+    # Check if the 'Esc' key is pressed to exit the loop
     keys = pygame.key.get_pressed()
     if keys[pygame.K_ESCAPE]:
         break
 
-# Liberar recursos
+# Release resources
 camera.release()
 pygame.quit()
