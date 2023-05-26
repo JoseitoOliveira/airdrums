@@ -8,8 +8,8 @@ def detect_circles(frame_bgr, minRadius=None, maxRadius=None):
     minRadius = minRadius or 10
     maxRadius = maxRadius or 70    # Separa o canal azul
 
-    filtered = filter_color(frame_bgr, lower=[90, 50, 140], upper=[130, 255, 255])
-    gray = cv2.cvtColor(filtered, cv2.COLOR_RGB2GRAY)
+    filtered = filter_color(frame_bgr, lower=[30, 30, 80], upper=[130, 255, 255])
+    gray = cv2.cvtColor(frame_bgr, cv2.COLOR_RGB2GRAY)
 
     # Blur using 3 * 3 kernel.
     gray_blurred = cv2.blur(gray, (3, 3))
@@ -35,3 +35,40 @@ def filter_color(frame_bgr, lower, upper):
     upper = np.array(upper)
     mask = cv2.inRange(hsv, lower, upper)
     return cv2.bitwise_and(frame_bgr, frame_bgr, mask=mask)
+
+
+def process_image(frame_bgr):
+    # Converter a imagem para o espaço de cores HSV
+    imagem_hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
+
+    # Definir os intervalos de cor para a esfera azul
+    azul_min = (90, 120, 70)
+    azul_max = (130, 255, 255)
+
+    # Criar uma máscara binária
+    mascara = cv2.inRange(imagem_hsv, azul_min, azul_max)
+
+    # Realizar operação de abertura na máscara
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    mascara = cv2.morphologyEx(mascara, cv2.MORPH_OPEN, kernel)
+
+    return mascara
+
+
+def detectar_esfera_azul(image):
+
+    mascara = process_image(image)
+
+    # Encontrar os contornos dos objetos na máscara
+    contornos, _ = cv2.findContours(mascara, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Filtrar contornos com base no tamanho ou outras características relevantes
+    circles = []
+    for contorno in contornos:
+        area = cv2.contourArea(contorno)
+        if area > 500:  # Exemplo: filtro de área mínima
+            # Encontrar o círculo mínimo que envolve o contorno
+            (x, y), raio = cv2.minEnclosingCircle(contorno)
+            circles.append((round(x), round(y), round(raio)))
+
+    return circles
