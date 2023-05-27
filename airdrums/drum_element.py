@@ -3,16 +3,18 @@ from threading import Thread
 import cv2
 import pygame
 import numpy as np
+import pygame as pg
 
 
 class DrumElement:
 
     counter = 0
 
-    def __init__(self, name: str, x: int, y: int, ax1: int, ax2: int, angle, sound: str) -> None:
+    def __init__(self, name: str, x: int, y: int, d: int, ax1: int, ax2: int, angle, sound: str) -> None:
         self.name = name
         self.x = x
         self.y = y
+        self.d = d
         self.ax1 = ax1
         self.ax2 = ax2
         self.center = np.array([x, y])
@@ -40,7 +42,7 @@ class DrumElement:
     def __repr__(self) -> str:
         return f'DrumElement(name={self.name})'
 
-    def draw(self, frame):
+    def draw_front_opencv(self, frame):
         cv2.ellipse(
             img=frame,
             center=(self.x, self.y),
@@ -50,6 +52,26 @@ class DrumElement:
             endAngle=360,
             color=(0, 0, 255),
             thickness=2
+        )
+
+    def draw_top(self, frame):
+        cv2.ellipse(
+            img=frame,
+            center=(self.d, self.y),
+            axes=(self.ax2, self.ax2),
+            angle=0,
+            startAngle=0,
+            endAngle=360,
+            color=(0, 0, 255),
+            thickness=2
+        )
+
+    def draw_top_pygame(self, surface: pg.Surface):
+        pg.draw.circle(
+            surface,
+            color=(0, 0, 255),
+            center=(self.y, self.d),
+            radius=self.ax2
         )
 
     def ponto_mais_proximo(self, circle):
