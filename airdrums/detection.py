@@ -66,9 +66,18 @@ def detectar_esfera_azul(image):
     circles = []
     for contorno in contornos:
         area = cv2.contourArea(contorno)
-        if area > 500:  # Exemplo: filtro de área mínima
+        if area > 200:  # Exemplo: filtro de área mínima
             # Encontrar o círculo mínimo que envolve o contorno
             (x, y), raio = cv2.minEnclosingCircle(contorno)
             circles.append((round(x), round(y), round(raio)))
+            # Distance Transform
+            mask = np.zeros_like(bin, dtype=np.uint8)
+            cv2.drawContours(mask, contorno, 0, 255, cv2.FILLED)
+            dt = cv2.distanceTransform(mask, cv2.DIST_L2, 5, cv2.DIST_LABEL_PIXEL)
+
+            # Find max value
+            minVal, max_val, _, max_loc = cv2.minMaxLoc(dt)
+            raio = minVal / 2
+
 
     return circles

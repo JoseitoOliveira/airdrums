@@ -37,6 +37,9 @@ class DrumElement:
 
         DrumElement.counter += 1
 
+    def __repr__(self) -> str:
+        return f'DrumElement(name={self.name})'
+
     def draw(self, frame):
         cv2.ellipse(
             img=frame,
@@ -67,11 +70,20 @@ class DrumElement:
 
         return self.ax_sum > (dist_to_f1 + dist_to_f2)
 
-    def interact(self, circle):
-        collided = self.is_collided(circle)
+    def play(self):
+        t = Thread(target=self.channel.play, args=(self.sound,), daemon=True)
+        t.start()
 
-        if collided and not self.collided:
-            t = Thread(target=self.channel.play, args=(self.sound,), daemon=True)
-            t.start()
+    def interact_with_circles(self, circles):
+        collided = False
+        for c in circles:
+            collided = collided or self.is_collided(c)
+            if (
+                not self.collided and
+                collided
+            ):
+                self.collided = True
+                self.play()
+                return
 
         self.collided = collided
