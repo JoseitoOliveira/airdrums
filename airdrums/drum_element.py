@@ -10,7 +10,18 @@ class DrumElement:
 
     counter = 0
 
-    def __init__(self, name: str, x: int, y: int, d: int, ax1: int, ax2: int, angle, sound: str) -> None:
+    def __init__(
+        self,
+        name: str,
+        x: int,
+        y: int,
+        d: int,
+        ax1: int,
+        ax2: int,
+        angle: int,
+        image: str,
+        sound: str
+    ) -> None:
         self.name = name
         self.x = x
         self.y = y
@@ -21,6 +32,10 @@ class DrumElement:
         self.angle = angle
         self.channel = pygame.mixer.Channel(DrumElement.counter)
         self.sound = pygame.mixer.Sound(sound)
+        self.image = pg.transform.scale(
+            pg.image.load(image),
+            (self.ax2 * 2, self.ax2 * 2)
+        )
         self.collided = False
 
         self.ax_sum = 2 * max(ax1, ax2)
@@ -67,11 +82,12 @@ class DrumElement:
         )
 
     def draw_top_pygame(self, surface: pg.Surface):
-        pg.draw.circle(
-            surface,
-            color=(0, 0, 255),
-            center=(self.y, self.d),
-            radius=self.ax2
+        surface.blit(
+            self.image,
+            (
+                round(self.y - (self.ax2 / 2)),
+                round(self.d - (self.ax2 / 2)),
+            )
         )
 
     def ponto_mais_proximo(self, circle):
@@ -97,15 +113,15 @@ class DrumElement:
         t.start()
 
     def interact_with_circles(self, circles):
-        collided = False
+        frame_collision = False
         for c in circles:
-            collided = collided or self.is_collided(c)
+            frame_collision = frame_collision or self.is_collided(c)
             if (
                 not self.collided and
-                collided
+                frame_collision
             ):
                 self.collided = True
                 self.play()
                 return
 
-        self.collided = collided
+        self.collided = frame_collision
