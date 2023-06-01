@@ -1,9 +1,56 @@
+import time
 from threading import Thread
 
-import cv2
-import pygame
 import numpy as np
+import pygame
 import pygame as pg
+from camera import screen_to_real, HEIGHT_PIXELS
+
+
+class DrumstickTip:
+
+    def __init__(self, x, y, r, real_size=0.05) -> None:
+        self.x = x
+        self.y = y
+        self.r = r
+        self.real_size = real_size
+
+        real_x, real_y, real_z = screen_to_real(x, y, r, real_size)
+        self.real_x = real_x
+        self.real_y = real_y
+        self.real_z = real_z
+
+        self.vel_x = 0  # m/s
+        self.vel_y = 0  # m/s
+        self.vel_z = 0  # m/s
+
+        self.last_tick = time.perf_counter()
+
+    def update_position(self, x, y, r):
+        real_x, real_y, real_z = screen_to_real(x, y, r, self.real_size)
+
+        tick = time.perf_counter()
+        time_delta = tick - self.last_tick
+
+        self.vel_x = (real_x - self.real_x) / time_delta
+        self.vel_y = (real_y - self.real_y) / time_delta
+        self.vel_z = (real_z - self.real_z) / time_delta
+
+        self.last_tick = tick
+
+        self.x = x
+        self.y = y
+        self.r = r
+
+        self.real_x = real_x
+        self.real_y = real_y
+        self.real_z = real_z
+    
+    def draw_top(self, surface):
+        H_MAX = 40
+        H_MIN = 20
+        h = H_MAX - (self.x / HEIGHT_PIXELS) * (H_MAX - H_MIN)
+        pg.draw.circle(surface, (0, 255, 0), (b, d), h)
 
 
 class DrumElement:
@@ -28,7 +75,8 @@ class DrumElement:
         self.d = d
         self.ax1 = ax1
         self.ax2 = ax2
-        self.center = np.array([x, y])
+        self.front_center = np.array([x, y])
+        self.top_center = np.array([d, y])
         self.angle = angle
         self.channel = pygame.mixer.Channel(DrumElement.counter)
         self.sound = pygame.mixer.Sound(sound)
@@ -57,56 +105,43 @@ class DrumElement:
     def __repr__(self) -> str:
         return f'DrumElement(name={self.name})'
 
-    def draw_front_opencv(self, frame):
-        cv2.ellipse(
-            img=frame,
-            center=(self.x, self.y),
-            axes=(self.ax1, self.ax2),
-            angle=self.angle,
-            startAngle=0,
-            endAngle=360,
-            color=(0, 0, 255),
-            thickness=2
-        )
-
-    def draw_top(self, frame):
-        cv2.ellipse(
-            img=frame,
-            center=(self.d, self.y),
-            axes=(self.ax2, self.ax2),
-            angle=0,
-            startAngle=0,
-            endAngle=360,
-            color=(0, 0, 255),
-            thickness=2
-        )
-
-    def draw_top_pygame(self, surface: pg.Surface):
+    def draw_top(self, surface: pg.Surface):
         surface.blit(
             self.image,
             (
-                round(self.y - (self.ax2 / 2)),
-                round(self.d - (self.ax2 / 2)),
+                round(self.y - self.ax2),
+                round(self.d - self.ax2),
             )
         )
 
-    def ponto_mais_proximo(self, circle):
-        cx, cy, r = circle
+    def draw_front(self, surface):
+        pg.draw.ellipse(
+            surface,
+            color=(0, 0, 0, 100),
+            rect=(self.y - self.ax2, self.x - self.ax1, self.ax2 * 2, self.ax1 * 2)
+        )
+
+    def ponto_mais_proximo(self, cx, cy, r):
 
         # Calcula o ponto do circulo mais perto da elipse
         cc = np.array([cx, cy])
-        v_dir = self.center - cc
+        v_dir = self.front_center - cc
         c_prox = cc + (v_dir / np.linalg.norm(v_dir)) * r
-
-        return [round(e) for e in c_prox]
+        return c_prox
 
     def is_collided(self, circle):
-        c_prox = self.ponto_mais_proximo(circle)
+        cx, cy, cd, r = circle
+        c_prox = self.ponto_mais_proximo(cx, cy, r)
 
         dist_to_f1 = np.linalg.norm(self.f1 - c_prox)
         dist_to_f2 = np.linalg.norm(self.f2 - c_prox)
 
-        return self.ax_sum > (dist_to_f1 + dist_to_f2)
+        top_dist = np.linalg.norm(np.array([cd, cy]) - np.array([self.d, self.y]))
+
+        front_collided = self.ax_sum > (dist_to_f1 + dist_to_f2)
+        top_collided = top_dist <= self.ax2 + r
+
+        return front_collided and top_collided
 
     def play(self):
         t = Thread(target=self.channel.play, args=(self.sound,), daemon=True)

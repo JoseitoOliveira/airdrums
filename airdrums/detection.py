@@ -1,5 +1,9 @@
 
 import cv2
+from collections import namedtuple
+
+
+P = namedtuple('P', ['x', 'y', 'r'])
 
 
 def process_image(frame_bgr):
@@ -7,8 +11,8 @@ def process_image(frame_bgr):
     imagem_hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
 
     # Definir os intervalos de cor para a esfera azul
-    verde_min = (40, 50, 80)
-    verde_max = (80, 255, 255)
+    verde_min = (40, 100, 80)
+    verde_max = (100, 255, 255)
 
     # Criar uma máscara binária
     mascara = cv2.inRange(imagem_hsv, verde_min, verde_max)
@@ -20,7 +24,7 @@ def process_image(frame_bgr):
     return mascara
 
 
-def detectar_esfera(image):
+def detect_drumstick_tip(image):
 
     mascara = process_image(image)
 
@@ -33,7 +37,8 @@ def detectar_esfera(image):
         area = cv2.contourArea(contorno)
         if area > 200:  # Exemplo: filtro de área mínima
             # Encontrar o círculo mínimo que envolve o contorno
-            (x, y), raio = cv2.minEnclosingCircle(contorno)
-            circles.append((round(x), round(y), round(raio)))
+            ((x, y), (w, h), alpha) = cv2.minAreaRect(contorno)
+            raio = min(w, h) / 2
+            circles.append(P(x, y, raio))
 
     return circles
