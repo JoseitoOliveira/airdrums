@@ -5,11 +5,16 @@ import numpy as np
 import pygame
 import pygame as pg
 from camera import screen_to_real, HEIGHT_PIXELS
+from utils import rescale
 
 
 class DrumstickTip:
+    counter = 0
 
     def __init__(self, x, y, r, real_size=0.05) -> None:
+        self.id = DrumstickTip.counter
+        DrumstickTip.counter += 1
+
         self.x = x
         self.y = y
         self.r = r
@@ -23,6 +28,7 @@ class DrumstickTip:
         self.vel_x = 0  # m/s
         self.vel_y = 0  # m/s
         self.vel_z = 0  # m/s
+        self.num_erro_detection = 0
 
         self.last_tick = time.perf_counter()
 
@@ -45,9 +51,9 @@ class DrumstickTip:
         self.real_x = real_x
         self.real_y = real_y
         self.real_z = real_z
-    
+        self.num_erro_detection = 0
+
     def draw_top(self, surface):
-        H_MAX = 40
         H_MIN = 20
         h = H_MAX - (self.x / HEIGHT_PIXELS) * (H_MAX - H_MIN)
         pg.draw.circle(surface, (0, 255, 0), (b, d), h)
@@ -84,7 +90,8 @@ class DrumElement:
             pg.image.load(image),
             (self.ax2 * 2, self.ax2 * 2)
         )
-        self.collided = False
+
+        self.collided_with: set[int] = set()
 
         self.ax_sum = 2 * max(ax1, ax2)
 
@@ -129,34 +136,44 @@ class DrumElement:
         c_prox = cc + (v_dir / np.linalg.norm(v_dir)) * r
         return c_prox
 
-    def is_collided(self, circle):
-        cx, cy, cd, r = circle
-        c_prox = self.ponto_mais_proximo(cx, cy, r)
+    def is_collided(self, tip: DrumstickTip):
+
+        c_prox = self.ponto_mais_proximo(tip.x, tip.y, tip.r)
 
         dist_to_f1 = np.linalg.norm(self.f1 - c_prox)
         dist_to_f2 = np.linalg.norm(self.f2 - c_prox)
 
-        top_dist = np.linalg.norm(np.array([cd, cy]) - np.array([self.d, self.y]))
+        d = rescale(tip.real_z, 0, 2, 0, 800)
+        top_dist = np.linalg.norm(np.array([d, tip.y]) - np.array([self.d, self.y]))
 
         front_collided = self.ax_sum > (dist_to_f1 + dist_to_f2)
-        top_collided = top_dist <= self.ax2 + r
+        top_collided = top_dist <= self.ax2 + tip.r
 
         return front_collided and top_collided
 
-    def play(self):
+    def play(self, volume=1):
+        self.sound.set_volume(volume)
         t = Thread(target=self.channel.play, args=(self.sound,), daemon=True)
         t.start()
 
-    def interact_with_circles(self, circles):
-        frame_collision = False
-        for c in circles:
-            frame_collision = frame_collision or self.is_collided(c)
+    def interact_with_drumstick_tips(self, drumstick_tips):
+        play_song = False
+        max_velocity = 5
+        for tip in drumstick_tips:
+            collided = self.is_collided(tip)
+            velocity = np.linalg.norm(np.array([tip.vel_x, tip.vel_y]))
             if (
-                not self.collided and
-                frame_collision
+                tip.id not in self.collided_with and
+                collided
             ):
-                self.collided = True
-                self.play()
-                return
+                self.collided_with.add(tip.id)
+                play_song = True
+                volume = min(velocity / max_velocity, 1)
+            elif (
+                tip.id in self.collided_with and
+                not collided
+            ):
+                self.collided_with.remove(tip.id)
 
-        self.collided = frame_collision
+        if play_song:
+            self.play(volume)

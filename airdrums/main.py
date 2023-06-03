@@ -2,10 +2,12 @@ import time
 import traceback
 
 import cv2
+import numpy as np
 import pygame as pg
 import pygame_widgets
+from camera import screen_to_real
 from detection import detect_drumstick_tip
-from drum_element import DrumElement, DrumstickTip
+from drums_elements import DrumElement, DrumstickTip
 from pygame_widgets.button import Button
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
@@ -15,7 +17,7 @@ from utils import FPSMedidor, find_closest_pairs
 pg.mixer.init()
 
 # Camera initialization
-camera = cv2.VideoCapture(2)
+camera = cv2.VideoCapture(3)
 
 window_width = 800
 window_height = 600
@@ -35,42 +37,42 @@ drum_set = [
         'Snare',
         x=round(0.85 * window_height),
         y=round(0.4 * window_width),
-        d=round(rescale(1.45, D_MIN, D_MAX, 0, window_height)),
-        ax1=round(0.07 * window_height),
-        ax2=round(0.12 * window_width),
+        d=round(rescale(1.20, D_MIN, D_MAX, 0, window_height)),
+        ax1=round(0.09 * window_height),
+        ax2=round(0.15 * window_width),
         angle=0,
         image='images/drum.png',
         sound='sounds/caixa.mp3'
     ),
     DrumElement(
         'Hi-hat',
-        x=round(0.75 * window_height),
+        x=round(0.65 * window_height),
         y=round(0.15 * window_width),
-        d=round(rescale(1.5, D_MIN, D_MAX, 0, window_height)),
+        d=round(rescale(1.2, D_MIN, D_MAX, 0, window_height)),
         ax1=round(0.09 * window_height),
-        ax2=round(0.12 * window_width),
+        ax2=round(0.15 * window_width),
         angle=0,
         image='images/plate.png',
         sound='sounds/chimbal.mp3'
     ),
     DrumElement(
         'Tom-1',
-        x=round(0.5 * window_height),
-        y=round(0.3 * window_width),
-        d=round(rescale(1.25, D_MIN, D_MAX, 0, window_height)),
-        ax1=round(0.09 * window_height),
-        ax2=round(0.1 * window_width),
+        x=round(0.3 * window_height),
+        y=round(0.25 * window_width),
+        d=round(rescale(1.05, D_MIN, D_MAX, 0, window_height)),
+        ax1=round(0.1 * window_height),
+        ax2=round(0.13 * window_width),
         angle=15,
         image='images/drum.png',
         sound='sounds/tom1.mp3'
     ),
     DrumElement(
         'Tom-2',
-        x=round(0.5 * window_height),
-        y=round(0.55 * window_width),
-        d=round(rescale(1.25, D_MIN, D_MAX, 0, window_height)),
-        ax1=round(0.10 * window_height),
-        ax2=round(0.13 * window_width),
+        x=round(0.3 * window_height),
+        y=round(0.6 * window_width),
+        d=round(rescale(1.05, D_MIN, D_MAX, 0, window_height)),
+        ax1=round(0.12 * window_height),
+        ax2=round(0.16 * window_width),
         angle=15,
         image='images/drum.png',
         sound='sounds/tom2.mp3'
@@ -79,7 +81,7 @@ drum_set = [
         'Tom-3',
         x=round(0.9 * window_height),
         y=round(0.8 * window_width),
-        d=round(rescale(1.35, D_MIN, D_MAX, 0, window_height)),
+        d=round(rescale(1.15, D_MIN, D_MAX, 0, window_height)),
         ax1=round(0.09 * window_height),
         ax2=round(0.13 * window_width),
         angle=15,
@@ -90,7 +92,7 @@ drum_set = [
         'Ride-Cymbal',
         x=round(0.25 * window_height),
         y=round(1 * window_width),
-        d=round(rescale(1.35, D_MIN, D_MAX, 0, window_height)),
+        d=round(rescale(1.15, D_MIN, D_MAX, 0, window_height)),
         ax1=round(0.09 * window_height),
         ax2=round(0.18 * window_width),
         angle=15,
@@ -126,8 +128,8 @@ def togle_view():
 btn_toglle_view = Button(
     # Mandatory Parameters
     window,  # Surface to place button on
-    window_width - 60,  # X-coordinate of top left corner
-    30,  # Y-coordinate of top left corner
+    30,  # X-coordinate of top left corner
+    window_height // 2,  # Y-coordinate of top left corner
     30,  # Width
     30,  # Height
 
@@ -139,8 +141,10 @@ btn_toglle_view = Button(
 )
 
 # # Set webcam frame size
-# camera.set(cv2.CAP_PROP_FRAME_WIDTH, window_width)
-# camera.set(cv2.CAP_PROP_FRAME_HEIGHT, window_height)
+camera.set(cv2.CAP_PROP_FRAME_WIDTH, window_width)
+camera.set(cv2.CAP_PROP_FRAME_HEIGHT, window_height)
+camera.set(cv2.CAP_PROP_EXPOSURE, -7)
+# camera.set(cv2.CAP_PROP_AUTO_WB, 1)
 
 
 fps_medidor = FPSMedidor()
@@ -164,6 +168,15 @@ while True:
     if not ret:
         break
 
+    hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
+
+    # Aumenta o brilho ajustando o canal de brilho (valor V)
+    brightness_offset = 50  # Ajuste esse valor para controlar o aumento do brilho
+    hsv[:, :, 2] = np.clip(hsv[:, :, 2] + brightness_offset, 0, 255)
+
+    # Converte a imagem de volta para o espaço de cores BGR
+    frame_bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
     # Rotate the frame 90 degrees counterclockwise
     frame_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
@@ -173,13 +186,21 @@ while True:
         traceback.print_exc()
         circles = []
 
+    # circles = [
+    #     c for c in circles
+    #     if screen_to_real(c.x, c.y, c.r, 50)[2] < 3
+    # ]
+
     pairs, _drumstick_tips, _circles = find_closest_pairs(drumstick_tips, circles)
 
     for (dst, c) in pairs:
         dst.update_position(c.x, c.y, c.r)
 
     for dst in _drumstick_tips:
-        ...
+        if dst.num_erro_detection >= 3:
+            drumstick_tips.remove(dst)
+        else:
+            dst.num_erro_detection += 1
 
     for c in _circles:
         drumstick_tips.append(DrumstickTip(c.x, c.y, c.r))
@@ -191,26 +212,19 @@ while True:
         frame_pg_front = pg.surfarray.make_surface(frame_rgb)
         front_view_pads = pg.surface.Surface((window_width, window_height), pg.SRCALPHA)
 
-    circles_3d: list[tuple[float, float, float, float]] = []
-    for a, b, r in circles:
-        d_real = (TAMANHO_REAL * DISTANCIA_FOCAL) / (2 * r)
-        d_screen = rescale(d_real, 0, 2, 0, window_width)
-        circles_3d.append((a, b, d_screen, r))
-
     for drum_ele in drum_set:
-        drum_ele.interact_with_circles(circles_3d)
+        drum_ele.interact_with_drumstick_tips(drumstick_tips)
         if IS_TOP_VIEW:
             drum_ele.draw_top(top_view)
         else:
             drum_ele.draw_front(front_view_pads)
 
-    for a, b, d, r in circles_3d:
-        # print(f'x={2*0.25*r/0.05}')
+    for tip in drumstick_tips:
         if IS_TOP_VIEW:
-            h = H_MAX - (a / window_height) * (H_MAX - H_MIN)
-            pg.draw.circle(top_view, (0, 255, 0), (b, d), h)
+            d = rescale(tip.real_z, 0, 2, 0, window_width)
+            pg.draw.circle(top_view, (0, 255, 0), (tip.y, d), 20)
         else:
-            pg.draw.circle(frame_pg_front, (0, 255, 0), (b, a), r)
+            pg.draw.circle(frame_pg_front, (0, 255, 0), (tip.y, tip.x), tip.r)
 
     if (fps := fps_medidor.update()) is not None:
         print(f'FPS:{fps:.2f} PFPS:{1/td:.2f}')

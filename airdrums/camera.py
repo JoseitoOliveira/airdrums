@@ -1,7 +1,7 @@
 import numpy as np
 
-HFOV = 66.3  # degrees
-VFOV = 52.2  # degrees
+HFOV = 48.5  # degrees
+VFOV = 37.5 # degrees
 CAMERA_HEIGHT = 1  # meters
 WIDTH_PIXELS = 800
 HEIGHT_PIXELS = 600
@@ -16,7 +16,6 @@ FOCAL_DIST_X = WIDTH_PIXELS / (2 * np.tan(HFOV_rad / 2))
 FOCAL_DIST_y = HEIGHT_PIXELS / (2 * np.tan(VFOV_rad / 2))
 MAIN_POINT_X = WIDTH_PIXELS / 2
 MAIN_POINT_Y = HEIGHT_PIXELS / 2
-
 
 # Matriz de câmera
 camera_matrix = np.array([[FOCAL_DIST_X, 0, MAIN_POINT_X],

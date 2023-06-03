@@ -1,6 +1,8 @@
 import time
 from typing import Iterable, Any
 
+def rescale(x, x0, x1, y0, y1):
+    return ((x - x0) * (y1 - y0) / (x1 - x0)) + y0
 
 def find_closest_pairs(set1: Iterable, set2: Iterable) -> tuple[list[tuple[Any, Any]], set, set]:
     set1 = set(set1)
